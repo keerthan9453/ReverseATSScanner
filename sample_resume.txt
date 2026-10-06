@@ -1,0 +1,19 @@
+Keerthan Devera
+keerthan@example.com
+416-555-0198
+
+EXPERIENCE
+Cloud Engineer Intern
+Example Company
+May 2026 - August 2026
+Built AWS infrastructure with Terraform, Kubernetes, Python, Jenkins and CI/CD workflows.
+
+EDUCATION
+York University
+2023 - 2027
+
+TECHNICAL SKILLS
+Python, AWS, Terraform, Kubernetes, Git, SQL
+
+PROJECTS
+Built a FastAPI service and React dashboard.
