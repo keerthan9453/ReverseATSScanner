@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ATS Parser</title>
+  <style>
+    :root { --left: 48%; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:#f7f7f5; color:#171717; overflow:hidden; }
+    main { min-height:100vh; display:grid; grid-template-columns: var(--left) 8px 1fr; }
+    .left, .right { min-width:0; height:100vh; }
+    .left { display:flex; align-items:center; justify-content:center; padding:64px; background:#f7f7f5; }
+    .wrap { width:min(560px, 100%); }
+    h1 { font-size:38px; line-height:1.08; margin:0 0 12px; letter-spacing:-1.2px; }
+    .sub { color:#6b6b66; margin:0 0 32px; font-size:16px; line-height:1.6; }
+    .drop { border:1.5px dashed #b7b7b0; border-radius:18px; padding:58px 24px; text-align:center; background:white; cursor:pointer; transition:.2s ease; display:block; }
+    .drop:hover { border-color:#777770; }
+    .drop.drag { border-color:#171717; transform:translateY(-2px); }
+    .drop strong { display:block; font-size:17px; margin-bottom:8px; }
+    .drop span { color:#777770; font-size:14px; }
+    input { display:none; }
+    .file-name { margin-top:16px; font-size:14px; color:#55554f; min-height:20px; }
+
+    .divider { position:relative; cursor:col-resize; background:#deded8; transition:background .15s ease; }
+    .divider:hover, .divider.dragging { background:#a9a9a1; }
+    .divider::after { content:""; position:absolute; top:50%; left:50%; width:3px; height:42px; border-radius:99px; background:#8f8f88; transform:translate(-50%,-50%); }
+
+    .right { background:#101113; color:#f7f7f3; overflow-y:auto; }
+    .panel { width:min(760px,100%); margin:auto; padding:52px 52px 72px; }
+    .panel-head { position:sticky; top:0; z-index:4; padding:8px 0 24px; background:linear-gradient(#101113 76%, rgba(16,17,19,0)); }
+    .panel h2 { margin:0 0 7px; font-size:15px; font-weight:700; color:#f2f2ed; letter-spacing:.04em; text-transform:uppercase; }
+    .panel-sub { margin:0; color:#8f949c; font-size:13px; }
+
+    .step { position:relative; padding:0 0 30px 42px; opacity:.44; transition:.25s ease; }
+    .step:not(:last-of-type)::after { content:""; position:absolute; left:11px; top:25px; width:1px; height:calc(100% - 10px); background:#32353a; }
+    .dot { position:absolute; left:0; top:0; width:24px; height:24px; border:1px solid #555960; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; color:#9499a2; background:#101113; }
+    .step.active, .step.done { opacity:1; }
+    .step.active .dot { border-color:#f5f5ef; box-shadow:0 0 0 3px rgba(255,255,255,.06); }
+    .step.done .dot { background:#f4f4ef; color:#111214; border-color:#f4f4ef; }
+    .step-title { font-weight:700; font-size:14px; margin-bottom:9px; color:#f2f2ee; }
+    .output { font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; color:#c4c8cf; white-space:pre-wrap; word-break:break-word; background:#17191c; border:1px solid #282b30; border-radius:11px; padding:12px 14px; max-height:180px; overflow:auto; }
+    .output:empty { display:none; }
+    .muted { color:#858b94; }
+    .error { color:#ff9c9c; }
+
+    .ai-card { margin:4px 0 0 42px; border:1px solid #34383f; background:#17191c; border-radius:15px; overflow:hidden; display:none; }
+    .ai-card.show { display:block; }
+    .ai-head { padding:16px 18px; border-bottom:1px solid #2a2e33; display:flex; gap:12px; align-items:flex-start; justify-content:space-between; }
+    .ai-kicker { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#8f949c; margin-bottom:4px; }
+    .ai-title { margin:0; font-size:19px; letter-spacing:-.3px; }
+    .ai-copy { color:#9da2aa; font-size:12px; line-height:1.5; margin-top:5px; max-width:560px; }
+    .ai-body { padding:16px 18px 18px; }
+    .ai-preview { margin:0; max-height:280px; overflow:auto; white-space:pre-wrap; font:12.5px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; color:#d2d5da; }
+    .stats { display:flex; gap:10px; flex-wrap:wrap; margin:0 0 14px; }
+    .pill { border:1px solid #32363c; border-radius:999px; padding:5px 8px; font-size:11px; color:#aab0b8; }
+    .downloads { display:flex; gap:8px; flex-wrap:wrap; margin-top:15px; }
+    button { border:1px solid #42474f; background:#24272c; color:#f4f4ef; border-radius:9px; padding:9px 12px; font-weight:700; font-size:12px; cursor:pointer; }
+    button:hover { background:#2d3137; }
+    button.primary { background:#f4f4ef; color:#111214; border-color:#f4f4ef; }
+    .hint { color:#6f747c; font-size:12px; margin:22px 0 0 42px; line-height:1.5; }
+
+    @media(max-width:850px){
+      body{overflow:auto;} main{display:block;} .divider{display:none;} .left,.right{height:auto;} .left{padding:38px 22px;min-height:48vh;} .right{min-height:52vh;} .panel{padding:38px 22px 60px;} h1{font-size:32px;} .ai-card,.hint{margin-left:0;} .step{padding-left:38px;}
+    }
+  </style>
+</head>
+<body>
+<main id="layout">
+  <section class="left">
+    <div class="wrap">
+      <h1>See how your resume gets parsed.</h1>
+      <p class="sub">Upload a resume. The parser shows what it sees, then turns it into compact AI-ready context.</p>
+      <label class="drop" id="drop" for="file">
+        <strong>Drop your resume here</strong>
+        <span>or click to choose PDF, DOCX, or TXT</span>
+      </label>
+      <input id="file" type="file" accept=".pdf,.docx,.txt" />
+      <div class="file-name" id="fileName"></div>
+    </div>
+  </section>
+
+  <div class="divider" id="divider" role="separator" aria-orientation="vertical" aria-label="Resize parsing sidebar"></div>
+
+  <section class="right">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Parsing activity</h2>
+        <p class="panel-sub">Drag the divider to resize this panel.</p>
+      </div>
+      <div class="step" data-step="0"><div class="dot">1</div><div class="step-title">Reading document</div><div class="output">Waiting for a resume…</div></div>
+      <div class="step" data-step="1"><div class="dot">2</div><div class="step-title">Extracting text</div><div class="output"></div></div>
+      <div class="step" data-step="2"><div class="dot">3</div><div class="step-title">Detecting sections</div><div class="output"></div></div>
+      <div class="step" data-step="3"><div class="dot">4</div><div class="step-title">Finding candidate details</div><div class="output"></div></div>
+      <div class="step" data-step="4"><div class="dot">5</div><div class="step-title">Finding skills & dates</div><div class="output"></div></div>
+      <div class="step" data-step="5"><div class="dot">6</div><div class="step-title">Structuring resume context</div><div class="output"></div></div>
+
+      <section class="ai-card" id="aiCard">
+        <div class="ai-head">
+          <div>
+            <div class="ai-kicker">Final output</div>
+            <h3 class="ai-title">AI Upgrading</h3>
+            <div class="ai-copy">A compact, structured version of your resume designed to give an AI the important context without making it parse the original PDF again.</div>
+          </div>
+        </div>
+        <div class="ai-body">
+          <div class="stats" id="stats"></div>
+          <pre class="ai-preview" id="aiPreview"></pre>
+          <div class="downloads">
+            <button class="primary" id="downloadMd">Download AI context (.md)</button>
+            <button id="downloadTxt">Download plain text (.txt)</button>
+            <button id="copyBtn">Copy output</button>
+          </div>
+        </div>
+      </section>
+      <div class="hint">Your resume stays on your machine when you run this app locally. No external AI API is used.</div>
+    </div>
+  </section>
+</main>
+<script>
+const input = document.querySelector('#file');
+const drop = document.querySelector('#drop');
+const fileName = document.querySelector('#fileName');
+const steps = [...document.querySelectorAll('.step')];
+const divider = document.querySelector('#divider');
+const aiCard = document.querySelector('#aiCard');
+const aiPreview = document.querySelector('#aiPreview');
+const stats = document.querySelector('#stats');
+let latestContext = '';
+let latestBaseName = 'resume';
+
+function setStep(i, text, state='active') {
+  steps[i].classList.remove('active','done');
+  steps[i].classList.add(state);
+  if (text !== undefined) steps[i].querySelector('.output').textContent = text;
+}
+function reset(){
+  steps.forEach((s,i)=>{s.className='step'; s.querySelector('.output').textContent = i===0?'Waiting for a resume…':'';});
+  aiCard.classList.remove('show'); latestContext='';
+}
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function displaySectionSummary(sectionContent){
+  const entries = Object.entries(sectionContent || {}).filter(([k])=>k!=='header');
+  if(!entries.length) return 'No standard section headings detected.';
+  return entries.map(([name,content])=>`✓ ${name}\n  ${content.split('\n').slice(0,2).join(' · ').slice(0,160)}`).join('\n\n');
+}
+function downloadContext(ext){
+  if(!latestContext) return;
+  const type = ext === 'md' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8';
+  const blob = new Blob([latestContext], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${latestBaseName}-ai-context.${ext}`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+async function parse(file){
+  reset();
+  fileName.textContent = file.name;
+  latestBaseName = file.name.replace(/\.[^.]+$/, '') || 'resume';
+  setStep(0, `${file.name}\n${Math.round(file.size/1024)} KB`, 'active');
+  const form = new FormData(); form.append('file', file);
+  const request = fetch('/api/parse', {method:'POST', body:form});
+  await sleep(250); setStep(0, 'Document opened successfully.', 'done');
+  setStep(1, 'Reading text layer…', 'active');
+  await sleep(350);
+  let res;
+  try { res = await request; } catch(e) { setStep(1,'Could not reach the local backend.','active'); return; }
+  if(!res.ok){ const err=await res.json(); setStep(1, err.detail || 'Parsing failed.', 'active'); return; }
+  const data = await res.json();
+  setStep(1, `${data.characters.toLocaleString()} characters extracted\n\n${data.text_preview.slice(0,360)}${data.text_preview.length>360?'…':''}`, 'done');
+  setStep(2, 'Scanning headings and grouping resume content…', 'active'); await sleep(300);
+  setStep(2, displaySectionSummary(data.section_content), 'done');
+  setStep(3, 'Looking for identity and contact information…', 'active'); await sleep(300);
+  setStep(3, `name   ${data.name || 'not found'}\nemail  ${data.email || 'not found'}\nphone  ${data.phone || 'not found'}${data.links.length ? `\nlinks  ${data.links.join(', ')}` : ''}`, 'done');
+  setStep(4, 'Matching technical terms and date patterns…', 'active'); await sleep(300);
+  setStep(4, `skills\n${data.skills.length ? data.skills.join(' · ') : 'none confidently detected'}\n\ndates\n${data.dates.length ? data.dates.join(' · ') : 'none found'}`, 'done');
+  setStep(5, 'Condensing important resume information into AI-ready context…', 'active'); await sleep(350);
+  setStep(5, `Structured ${data.sections.length} sections and ${data.skills.length} detected skills.\nAI context ready for download.`, 'done');
+
+  latestContext = data.ai_context;
+  aiPreview.textContent = latestContext;
+  stats.innerHTML = `
+    <span class="pill">${data.ai_context_chars.toLocaleString()} context characters</span>
+    <span class="pill">${data.characters.toLocaleString()} extracted characters</span>
+    <span class="pill">${data.skills.length} skills detected</span>`;
+  aiCard.classList.add('show');
+  aiCard.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+input.addEventListener('change', e => e.target.files[0] && parse(e.target.files[0]));
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag');}));
+drop.addEventListener('drop', e=>{ const f=e.dataTransfer.files[0]; if(f) parse(f); });
+
+document.querySelector('#downloadMd').addEventListener('click', ()=>downloadContext('md'));
+document.querySelector('#downloadTxt').addEventListener('click', ()=>downloadContext('txt'));
+document.querySelector('#copyBtn').addEventListener('click', async (e)=>{
+  if(!latestContext) return;
+  await navigator.clipboard.writeText(latestContext);
+  const old=e.target.textContent; e.target.textContent='Copied'; setTimeout(()=>e.target.textContent=old,1200);
+});
+
+let resizing=false;
+divider.addEventListener('pointerdown', e=>{
+  resizing=true; divider.classList.add('dragging'); divider.setPointerCapture(e.pointerId); document.body.style.userSelect='none';
+});
+divider.addEventListener('pointermove', e=>{
+  if(!resizing || window.innerWidth <= 850) return;
+  const pct = Math.max(28, Math.min(70, (e.clientX / window.innerWidth) * 100));
+  document.documentElement.style.setProperty('--left', `${pct}%`);
+});
+divider.addEventListener('pointerup', ()=>{ resizing=false; divider.classList.remove('dragging'); document.body.style.userSelect=''; });
+divider.addEventListener('pointercancel', ()=>{ resizing=false; divider.classList.remove('dragging'); document.body.style.userSelect=''; });
+</script>
+</body>
+</html>
