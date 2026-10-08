@@ -72,20 +72,41 @@ def find_sections(text: str):
 
 
 def first_email(text: str):
-    m = re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", text, re.I)
-    return m.group(0) if m else None
+    """Extract email with improved pattern matching."""
+    patterns = [
+        r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",  # Standard email
+        r"mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",  # mailto links
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text, re.I)
+        if m:
+            if m.groups():
+                return m.group(1)
+            return m.group(0)
+    return None
 
 
 def first_phone(text: str):
-    m = re.search(r"(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}", text)
-    return m.group(0) if m else None
+    """Extract phone number with improved pattern matching."""
+    patterns = [
+        r"\+?1?\s*\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})",  # US format variations
+        r"\+?[0-9]{1,3}[\s.-]?[0-9]{6,14}",  # International format
+        r"\(([0-9]{3})\)\s*([0-9]{3})[\s.-]?([0-9]{4})",  # Parentheses format
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text)
+        if m:
+            return m.group(0).strip()
+    return None
 
 
 def find_linkedin(text: str):
-    """Extract LinkedIn profile URL from resume text."""
+    """Extract LinkedIn profile URL with improved pattern matching."""
     patterns = [
-        r"(?:https?://)?(?:www\.)?linkedin\.com/(?:in|company)/[^\s/]+",
-        r"linkedin\.com/in/[^\s]+"
+        r"(?:https?://)?(?:www\.)?linkedin\.com/in/[a-zA-Z0-9-]+",  # /in/ URLs
+        r"(?:https?://)?(?:www\.)?linkedin\.com/company/[a-zA-Z0-9-]+",  # /company/ URLs
+        r"linkedin\.com/in/[a-zA-Z0-9-]+",  # Without protocol
+        r"linkedin\.com/profile/view\?id=[0-9]+",  # Old format
     ]
     for pattern in patterns:
         m = re.search(pattern, text, re.I)
@@ -110,7 +131,6 @@ def find_links(text: str):
 def find_dates(text: str):
     months = r"Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?"
     pattern = rf"(?:{months})\s+\d{{4}}|\b(?:19|20)\d{{2}}\b"
-    vals = re.findall(pattern, text, flags=re.I)
     vals = [m.group(0) for m in re.finditer(pattern, text, flags=re.I)]
     out = []
     for v in vals:
@@ -144,8 +164,12 @@ def compact_section(value: str, max_chars: int = 3500) -> str:
 
 def validate_resume_contact_info(email: str, phone: str, linkedin: str) -> dict:
     """
-    If all three are missing, print: Please enter a resume
-    If one or more are missing, print: Please enter {missing items}
+    Validate resume contact information.
+    
+    Returns:
+    - status: 'valid' if all 3 present, 'missing_some' if 1-2 present, 'missing_all' if none present
+    - missing: list of missing items
+    - message: user-friendly message
     """
     missing = []
 
@@ -157,13 +181,13 @@ def validate_resume_contact_info(email: str, phone: str, linkedin: str) -> dict:
         missing.append("LinkedIn account")
 
     if not missing:
-        message = "All contact information found."
+        message = "✓ All contact information found."
         status = "valid"
     elif len(missing) == 3:
-        message = "Please enter a resume"
+        message = "⚠ Please enter a resume with contact information (email, phone, or LinkedIn)"
         status = "missing_all"
     else:
-        message = "Please enter " + " and ".join(missing)
+        message = "⚠ Please enter " + " and ".join(missing)
         status = "missing_some"
 
     return {
