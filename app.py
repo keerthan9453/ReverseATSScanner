@@ -90,9 +90,7 @@ def find_linkedin(text: str):
     for pattern in patterns:
         m = re.search(pattern, text, re.I)
         if m:
-            url = m.group(0)
-            # Clean up URL
-            url = url.rstrip(".,;)")
+            url = m.group(0).rstrip(".,;)")
             if not url.startswith("http"):
                 url = "https://" + url
             return url
@@ -113,7 +111,6 @@ def find_dates(text: str):
     months = r"Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?"
     pattern = rf"(?:{months})\s+\d{{4}}|\b(?:19|20)\d{{2}}\b"
     vals = re.findall(pattern, text, flags=re.I)
-    # re.findall returns capture groups when the pattern has a capture; use finditer instead.
     vals = [m.group(0) for m in re.finditer(pattern, text, flags=re.I)]
     out = []
     for v in vals:
@@ -147,39 +144,32 @@ def compact_section(value: str, max_chars: int = 3500) -> str:
 
 def validate_resume_contact_info(email: str, phone: str, linkedin: str) -> dict:
     """
-    Validate resume contact information.
-    
-    Returns:
-        dict with keys:
-        - is_valid: bool (True if at least one contact method found)
-        - missing: list of missing contact methods
-        - message: str with validation message
+    If all three are missing, print: Please enter a resume
+    If one or more are missing, print: Please enter {missing items}
     """
     missing = []
-    
+
     if not email:
         missing.append("email")
     if not phone:
         missing.append("phone number")
     if not linkedin:
         missing.append("LinkedIn account")
-    
-    is_valid = len(missing) < 3  # At least one must be present
-    
-    if is_valid and missing:
-        # Some contact info found, list what's missing
-        message = f"Please enter {' and '.join(missing)}"
-    elif is_valid:
-        # All contact info found
-        message = "All contact information found ✓"
+
+    if not missing:
+        message = "All contact information found."
+        status = "valid"
+    elif len(missing) == 3:
+        message = "Please enter a resume"
+        status = "missing_all"
     else:
-        # No contact info found
-        message = "Please enter a resume with at least one of: email, phone number, or LinkedIn account"
-    
+        message = "Please enter " + " and ".join(missing)
+        status = "missing_some"
+
     return {
-        "is_valid": is_valid,
+        "status": status,
         "missing": missing,
-        "message": message
+        "message": message,
     }
 
 
@@ -195,11 +185,11 @@ def build_ai_context(filename: str, text: str, parsed: dict, sections: dict) -> 
         f"- Email: {parsed.get('email') or 'Not detected'}",
         f"- Phone: {parsed.get('phone') or 'Not detected'}",
     ]
-    
+
     linkedin = parsed.get("linkedin")
     if linkedin:
         lines.append(f"- LinkedIn: {linkedin}")
-    
+
     links = parsed.get("links") or []
     if links:
         lines.append("- Links: " + ", ".join(links))
@@ -213,7 +203,6 @@ def build_ai_context(filename: str, text: str, parsed: dict, sections: dict) -> 
         if content:
             lines.extend(["", f"## {section.title()}", compact_section(content)])
 
-    # Preserve otherwise-unclassified resume content so the compact file still carries context.
     header = sections.get("header", "")
     if header:
         header_lines = []
@@ -271,14 +260,13 @@ async def parse_resume(file: UploadFile = File(...)):
     sections = [k for k in sections_map.keys() if k != "header"]
     skills = find_skills(cleaned)
     dates = find_dates(cleaned)
-    
+
     email = first_email(cleaned)
     phone = first_phone(cleaned)
     linkedin = find_linkedin(cleaned)
-    
-    # Validate contact information
+
     contact_validation = validate_resume_contact_info(email, phone, linkedin)
-    
+
     parsed = {
         "filename": file.filename,
         "characters": len(cleaned),
