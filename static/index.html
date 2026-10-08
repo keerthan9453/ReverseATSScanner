@@ -21,6 +21,18 @@
     .drop span { color:#777770; font-size:14px; }
     input { display:none; }
     .file-name { margin-top:16px; font-size:14px; color:#55554f; min-height:20px; }
+    .file-info { margin-top:24px; padding:16px; background:#f0f0ed; border-radius:12px; display:none; }
+    .file-info.show { display:block; }
+    .file-info-label { font-size:13px; color:#6b6b66; font-weight:600; margin-bottom:8px; }
+    .file-info-value { font-size:14px; color:#171717; margin-bottom:12px; word-break:break-all; }
+    .button-group { display:flex; gap:10px; margin-top:16px; }
+    .btn { border:1px solid #42474f; background:#24272c; color:#f4f4ef; border-radius:9px; padding:10px 16px; font-weight:700; font-size:12px; cursor:pointer; transition:.15s ease; }
+    .btn:hover { background:#2d3137; }
+    .btn.primary { background:#f4f4ef; color:#111214; border-color:#f4f4ef; }
+    .btn.primary:hover { background:#e8e8e3; }
+    .btn.secondary { background:#1a1c1f; border-color:#555960; }
+    .btn.secondary:hover { background:#242729; }
+    .btn:disabled { opacity:.5; cursor:not-allowed; }
 
     .divider { position:relative; cursor:col-resize; background:#deded8; transition:background .15s ease; }
     .divider:hover, .divider.dragging { background:#a9a9a1; }
@@ -34,15 +46,16 @@
 
     .step { position:relative; padding:0 0 30px 42px; opacity:.44; transition:.25s ease; }
     .step:not(:last-of-type)::after { content:""; position:absolute; left:11px; top:25px; width:1px; height:calc(100% - 10px); background:#32353a; }
-    .dot { position:absolute; left:0; top:0; width:24px; height:24px; border:1px solid #555960; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; color:#9499a2; background:#101113; }
+    .dot { position:absolute; left:0; top:0; width:24px; height:24px; border:1px solid #555960; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; color:#9499a2; }
     .step.active, .step.done { opacity:1; }
     .step.active .dot { border-color:#f5f5ef; box-shadow:0 0 0 3px rgba(255,255,255,.06); }
     .step.done .dot { background:#f4f4ef; color:#111214; border-color:#f4f4ef; }
     .step-title { font-weight:700; font-size:14px; margin-bottom:9px; color:#f2f2ee; }
-    .output { font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; color:#c4c8cf; white-space:pre-wrap; word-break:break-word; background:#17191c; border:1px solid #282b30; border-radius:11px; padding:12px 14px; max-height:180px; overflow:auto; }
+    .output { font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; color:#c4c8cf; white-space:pre-wrap; word-break:break-word; background:#17191c; border:1px solid #282b30; border-radius:8px; padding:12px; }
     .output:empty { display:none; }
     .muted { color:#858b94; }
     .error { color:#ff9c9c; }
+    .warning { color:#ffa94d; }
 
     .ai-card { margin:4px 0 0 42px; border:1px solid #34383f; background:#17191c; border-radius:15px; overflow:hidden; display:none; }
     .ai-card.show { display:block; }
@@ -61,7 +74,7 @@
     .hint { color:#6f747c; font-size:12px; margin:22px 0 0 42px; line-height:1.5; }
 
     @media(max-width:850px){
-      body{overflow:auto;} main{display:block;} .divider{display:none;} .left,.right{height:auto;} .left{padding:38px 22px;min-height:48vh;} .right{min-height:52vh;} .panel{padding:38px 22px 60px;} h1{font-size:32px;} .ai-card,.hint{margin-left:0;} .step{padding-left:38px;}
+      body{overflow:auto;} main{display:block;} .divider{display:none;} .left,.right{height:auto;} .left{padding:38px 22px;min-height:48vh;} .right{min-height:52vh;} .panel{padding:38px 22px 60px;}
     }
   </style>
 </head>
@@ -77,6 +90,16 @@
       </label>
       <input id="file" type="file" accept=".pdf,.docx,.txt" />
       <div class="file-name" id="fileName"></div>
+      <div class="file-info" id="fileInfo">
+        <div class="file-info-label">File selected:</div>
+        <div class="file-info-value" id="fileInfoName"></div>
+        <div class="file-info-label">Size:</div>
+        <div class="file-info-value" id="fileInfoSize"></div>
+        <div class="button-group">
+          <button class="btn primary" id="confirmBtn">Confirm & Parse</button>
+          <button class="btn secondary" id="cancelBtn">Cancel</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -88,12 +111,13 @@
         <h2>Parsing activity</h2>
         <p class="panel-sub">Drag the divider to resize this panel.</p>
       </div>
-      <div class="step" data-step="0"><div class="dot">1</div><div class="step-title">Reading document</div><div class="output">Waiting for a resume…</div></div>
+      <div class="step" data-step="0"><div class="dot">1</div><div class="step-title">File selected</div><div class="output">Waiting for a resume…</div></div>
       <div class="step" data-step="1"><div class="dot">2</div><div class="step-title">Extracting text</div><div class="output"></div></div>
       <div class="step" data-step="2"><div class="dot">3</div><div class="step-title">Detecting sections</div><div class="output"></div></div>
       <div class="step" data-step="3"><div class="dot">4</div><div class="step-title">Finding candidate details</div><div class="output"></div></div>
       <div class="step" data-step="4"><div class="dot">5</div><div class="step-title">Finding skills & dates</div><div class="output"></div></div>
-      <div class="step" data-step="5"><div class="dot">6</div><div class="step-title">Structuring resume context</div><div class="output"></div></div>
+      <div class="step" data-step="5"><div class="dot">6</div><div class="step-title">Validating contact info</div><div class="output"></div></div>
+      <div class="step" data-step="6"><div class="dot">7</div><div class="step-title">Structuring resume context</div><div class="output"></div></div>
 
       <section class="ai-card" id="aiCard">
         <div class="ai-head">
@@ -121,6 +145,11 @@
 const input = document.querySelector('#file');
 const drop = document.querySelector('#drop');
 const fileName = document.querySelector('#fileName');
+const fileInfo = document.querySelector('#fileInfo');
+const fileInfoName = document.querySelector('#fileInfoName');
+const fileInfoSize = document.querySelector('#fileInfoSize');
+const confirmBtn = document.querySelector('#confirmBtn');
+const cancelBtn = document.querySelector('#cancelBtn');
 const steps = [...document.querySelectorAll('.step')];
 const divider = document.querySelector('#divider');
 const aiCard = document.querySelector('#aiCard');
@@ -128,22 +157,34 @@ const aiPreview = document.querySelector('#aiPreview');
 const stats = document.querySelector('#stats');
 let latestContext = '';
 let latestBaseName = 'resume';
+let selectedFile = null;
 
 function setStep(i, text, state='active') {
   steps[i].classList.remove('active','done');
   steps[i].classList.add(state);
   if (text !== undefined) steps[i].querySelector('.output').textContent = text;
 }
+
+function setStepHTML(i, html, state='active') {
+  steps[i].classList.remove('active','done');
+  steps[i].classList.add(state);
+  if (html !== undefined) steps[i].querySelector('.output').innerHTML = html;
+}
+
 function reset(){
   steps.forEach((s,i)=>{s.className='step'; s.querySelector('.output').textContent = i===0?'Waiting for a resume…':'';});
-  aiCard.classList.remove('show'); latestContext='';
+  aiCard.classList.remove('show'); 
+  latestContext='';
 }
+
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
 function displaySectionSummary(sectionContent){
   const entries = Object.entries(sectionContent || {}).filter(([k])=>k!=='header');
   if(!entries.length) return 'No standard section headings detected.';
   return entries.map(([name,content])=>`✓ ${name}\n  ${content.split('\n').slice(0,2).join(' · ').slice(0,160)}`).join('\n\n');
 }
+
 function downloadContext(ext){
   if(!latestContext) return;
   const type = ext === 'md' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8';
@@ -154,29 +195,60 @@ function downloadContext(ext){
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
+function showFileInfo(file) {
+  selectedFile = file;
+  fileInfoName.textContent = file.name;
+  fileInfoSize.textContent = (file.size / 1024).toFixed(2) + ' KB';
+  fileInfo.classList.add('show');
+  fileName.textContent = '';
+}
+
+function hideFileInfo() {
+  fileInfo.classList.remove('show');
+  selectedFile = null;
+  fileName.textContent = '';
+  input.value = '';
+  reset();
+}
+
 async function parse(file){
+  fileInfo.classList.remove('show');
   reset();
   fileName.textContent = file.name;
   latestBaseName = file.name.replace(/\.[^.]+$/, '') || 'resume';
-  setStep(0, `${file.name}\n${Math.round(file.size/1024)} KB`, 'active');
+  
+  setStep(0, `${file.name}\n${(file.size/1024).toFixed(2)} KB`, 'active');
   const form = new FormData(); form.append('file', file);
   const request = fetch('/api/parse', {method:'POST', body:form});
   await sleep(250); setStep(0, 'Document opened successfully.', 'done');
+  
   setStep(1, 'Reading text layer…', 'active');
   await sleep(350);
+  
   let res;
   try { res = await request; } catch(e) { setStep(1,'Could not reach the local backend.','active'); return; }
   if(!res.ok){ const err=await res.json(); setStep(1, err.detail || 'Parsing failed.', 'active'); return; }
   const data = await res.json();
+  
   setStep(1, `${data.characters.toLocaleString()} characters extracted\n\n${data.text_preview.slice(0,360)}${data.text_preview.length>360?'…':''}`, 'done');
+  
   setStep(2, 'Scanning headings and grouping resume content…', 'active'); await sleep(300);
   setStep(2, displaySectionSummary(data.section_content), 'done');
+  
   setStep(3, 'Looking for identity and contact information…', 'active'); await sleep(300);
-  setStep(3, `name   ${data.name || 'not found'}\nemail  ${data.email || 'not found'}\nphone  ${data.phone || 'not found'}${data.links.length ? `\nlinks  ${data.links.join(', ')}` : ''}`, 'done');
+  const linkedinStr = data.linkedin ? `\nlinkedin ${data.linkedin}` : '';
+  setStep(3, `name   ${data.name || 'not found'}\nemail  ${data.email || 'not found'}\nphone  ${data.phone || 'not found'}${linkedinStr}${data.links.length ? `\nlinks  ${data.links.join(', ')}` : ''}`, 'done');
+  
   setStep(4, 'Matching technical terms and date patterns…', 'active'); await sleep(300);
   setStep(4, `skills\n${data.skills.length ? data.skills.join(' · ') : 'none confidently detected'}\n\ndates\n${data.dates.length ? data.dates.join(' · ') : 'none found'}`, 'done');
-  setStep(5, 'Condensing important resume information into AI-ready context…', 'active'); await sleep(350);
-  setStep(5, `Structured ${data.sections.length} sections and ${data.skills.length} detected skills.\nAI context ready for download.`, 'done');
+  
+  setStep(5, 'Validating contact information…', 'active'); await sleep(300);
+  const validation = data.contact_validation;
+  const validationClass = validation.status === 'missing_all' ? 'error' : (validation.status === 'missing_some' ? 'warning' : 'muted');
+  setStepHTML(5, `<span class="${validationClass}">${validation.message}</span>`, 'done');
+  
+  setStep(6, 'Condensing important resume information into AI-ready context…', 'active'); await sleep(350);
+  setStep(6, `Structured ${data.sections.length} sections and ${data.skills.length} detected skills.\nAI context ready for download.`, 'done');
 
   latestContext = data.ai_context;
   aiPreview.textContent = latestContext;
@@ -188,10 +260,30 @@ async function parse(file){
   aiCard.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
-input.addEventListener('change', e => e.target.files[0] && parse(e.target.files[0]));
+input.addEventListener('change', e => {
+  if (e.target.files[0]) {
+    showFileInfo(e.target.files[0]);
+  }
+});
+
 ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag');}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag');}));
-drop.addEventListener('drop', e=>{ const f=e.dataTransfer.files[0]; if(f) parse(f); });
+drop.addEventListener('drop', e=>{ 
+  e.preventDefault();
+  const f=e.dataTransfer.files[0]; 
+  if(f) {
+    input.files = e.dataTransfer.files;
+    showFileInfo(f);
+  }
+});
+
+confirmBtn.addEventListener('click', () => {
+  if (selectedFile) parse(selectedFile);
+});
+
+cancelBtn.addEventListener('click', () => {
+  hideFileInfo();
+});
 
 document.querySelector('#downloadMd').addEventListener('click', ()=>downloadContext('md'));
 document.querySelector('#downloadTxt').addEventListener('click', ()=>downloadContext('txt'));
