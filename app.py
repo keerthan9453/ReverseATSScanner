@@ -101,20 +101,36 @@ def first_phone(text: str):
 
 
 def find_linkedin(text: str):
-    """Extract LinkedIn profile URL with improved pattern matching."""
+    """Extract LinkedIn profile URL with improved pattern matching for LaTeX and standard formats."""
     patterns = [
-        r"(?:https?://)?(?:www\.)?linkedin\.com/in/[a-zA-Z0-9-]+",  # /in/ URLs
-        r"(?:https?://)?(?:www\.)?linkedin\.com/company/[a-zA-Z0-9-]+",  # /company/ URLs
-        r"linkedin\.com/in/[a-zA-Z0-9-]+",  # Without protocol
-        r"linkedin\.com/profile/view\?id=[0-9]+",  # Old format
+        # LaTeX href format: \href{URL}{text}
+        r"\\href\{(https?://(?:www\.)?linkedin\.com/[^\}]+)\}",
+        # Direct URL patterns with and without protocol
+        r"(?:https?://)?(?:www\.)?linkedin\.com/in/[a-zA-Z0-9-]+",
+        r"(?:https?://)?(?:www\.)?linkedin\.com/company/[a-zA-Z0-9-]+",
+        r"linkedin\.com/profile/view\?id=[0-9]+",
+        # Fallback for partial LinkedIn URLs
+        r"linkedin\.com/[a-zA-Z0-9/?&=-]+",
     ]
+    
     for pattern in patterns:
         m = re.search(pattern, text, re.I)
         if m:
-            url = m.group(0).rstrip(".,;)")
+            # If the pattern has groups, get the first group (for LaTeX case)
+            if m.groups():
+                url = m.group(1)
+            else:
+                url = m.group(0)
+            
+            # Clean up the URL
+            url = url.rstrip(".,;)}\\'\"")
+            
+            # Ensure it has a protocol
             if not url.startswith("http"):
                 url = "https://" + url
+            
             return url
+    
     return None
 
 
@@ -180,15 +196,18 @@ def validate_resume_contact_info(email: str, phone: str, linkedin: str) -> dict:
     if not linkedin:
         missing.append("LinkedIn account")
 
-    if not missing:
-        message = "✓ All contact information found."
-        status = "valid"
-    elif len(missing) == 3:
+    # All three missing
+    if len(missing) == 3:
         message = "⚠ Please enter a resume with contact information (email, phone, or LinkedIn)"
         status = "missing_all"
-    else:
+    # Some missing
+    elif missing:
         message = "⚠ Please enter " + " and ".join(missing)
         status = "missing_some"
+    # All present
+    else:
+        message = "✓ All contact information found."
+        status = "valid"
 
     return {
         "status": status,
